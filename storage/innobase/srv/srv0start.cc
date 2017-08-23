@@ -1388,7 +1388,12 @@ srv_prepare_to_delete_redo_log_files(
 		/* Flush the old log files. */
 		log_mutex_exit();
 
+		// JONGQ flsuh log @ start
+		fprintf(stderr,"[JONGQ] srv_prepare_to_delete_redo_log_files CALL!\n");
+		extern bool PRIMAL_FLAG;
+		PRIMAL_FLAG=true;
 		log_write_up_to(flushed_lsn, true);
+		PRIMAL_FLAG=false;
 
 		/* If innodb_flush_method=O_DSYNC,
 		we need to explicitly flush the log buffers. */
@@ -2220,7 +2225,6 @@ files_checked:
 
 		/* We always try to do a recovery, even if the database had
 		been shut down normally: this is the normal startup path */
-
 		err = recv_recovery_from_checkpoint_start(flushed_lsn);
 
 		recv_sys->dblwr.pages.clear();
@@ -2661,6 +2665,8 @@ files_checked:
 	os_thread_create(buf_resize_thread, NULL, NULL);
 
 	srv_was_started = TRUE;
+	
+	fprintf(stderr,"[JONGQ] server setting finish?\n");
 	return(DB_SUCCESS);
 }
 

@@ -1786,7 +1786,7 @@ trx_flush_log_if_needed_low(
 		/* fall through */
 	case 1:
 		/* Write the log and optionally flush it to disk */
-		//fprintf(stderr,"[JONGQ] trx_flush_log_if_neede_low call log_write_up_to()\n");
+		fprintf(stderr,"[JONGQ] trx_flush_log_if_neede_low call log_write_up_to()\n");
 		log_write_up_to(lsn, flush);
 		return;
 	case 0:

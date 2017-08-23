@@ -1037,8 +1037,9 @@ buf_flush_write_block_low(
 
 	/* Force the log to the disk before writing the modified block */
 	if (!srv_read_only_mode) {
-		//fprintf(stderr,"[JONGQ] buf0buf log_write_up_to call!\n");
+		fprintf(stderr,"[JONGQ] buf_flush_write_block_low() log_write_up_to call!\n");
 		log_write_up_to(bpage->newest_modification, true);
+		fprintf(stderr,"[JONGQ] buf_flush_write_block_low() log_write_up_to call FINISH!\n");
 	}
 
 	switch (buf_page_get_state(bpage)) {

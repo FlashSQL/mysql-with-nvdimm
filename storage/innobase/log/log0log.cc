@@ -130,7 +130,9 @@ the previous */
 #define LOG_UNLOCK_FLUSH_LOCK		2
 
 /* JONGQ */
-bool PRIMAL_FLAG=false;
+bool PRIMAL_FLAG=false; // 체크포인트 혹은 서버 Shutdown 과정에서 강제로 로그에 쓰도록 하는 과정
+bool FLUSH_FLAG=false; // checkBufHalf()가 통과한 경우에만 처리하도록
+bool SHUTDOWN_FLAG=false; // 데이터베이스 종료시 log file 쓰도록
 bool checkBufHalf(void){
 	if(log_sys->buf_free > log_sys->buf_size/2){
 		fprintf(stderr,"[JONGQ] TRUE buf_free: %lu \t buf_size: %lu \n",log_sys->buf_free,log_sys->buf_size);
@@ -1058,7 +1060,6 @@ log_group_write_buf(
 					if we have to write a new log file
 					header */
 {
-	//fprintf(stderr,"[JONGQ] log_group_write_buf CALL!\n");
 
 	ulint		write_len;
 	bool		write_header	= new_data_offset == 0;
@@ -1071,6 +1072,7 @@ log_group_write_buf(
 	ut_a(start_lsn % OS_FILE_LOG_BLOCK_SIZE == 0);
 
 loop:
+	
 	if (len == 0) {
 
 		return;
@@ -1141,16 +1143,18 @@ loop:
 		= (ulint) (next_offset / univ_page_size.physical());
 
 	// JONGQ Check this one!
-	if(checkBufHalf() || PRIMAL_FLAG){
+	// vesrion#2 occur deadlock ...
+	//if(checkBufHalf() || PRIMAL_FLAG){
 
+	fprintf(stderr,"[JONGQ] fil_io call! write_len: %ul\n",write_len);
 	fil_io(IORequestLogWrite, true,
 	       page_id_t(group->space_id, page_no),
 	       univ_page_size,
 	       (ulint) (next_offset % UNIV_PAGE_SIZE), write_len, buf,
 	       group);
-
-		PRIMAL_FLAG=false;
-	}
+	//	FLUSH_FLAG=true;
+	//	PRIMAL_FLAG=false;
+	//}
 	//fprintf(stderr,"[JONGQ] fil_io call! size: %lu\n",write_len);
 
 	srv_stats.os_log_pending_writes.dec();
@@ -1252,6 +1256,13 @@ log_write_up_to(
 		/* Recovery is running and no operations on the log files are
 		allowed yet (the variable name .._no_ibuf_.. is misleading) */
 
+		return;
+	}
+
+	if(checkBufHalf() || PRIMAL_FLAG || SHUTDOWN_FLAG)
+		goto loop;
+	else{
+		fprintf(stderr,"[JONGQ] NOT NOW in log_write_up_to()\n");
 		return;
 	}
 
@@ -1413,7 +1424,8 @@ loop:
 	ORIGINAL : CLEAR if 
 	 */
 	//if(checkBufHalf() || PRIMAL_FLAG){
-	//fprintf(stderr,"[JONGQ] log_group_write_buf call!\n");
+	fprintf(stderr,"[JONGQ] log_group_write_buf call!\n");
+	
 	log_group_write_buf(
 		group, write_buf + area_start,
 		area_end - area_start + pad_size,
@@ -1423,7 +1435,6 @@ loop:
 		ut_uint64_align_down(log_sys->write_lsn,
 				     OS_FILE_LOG_BLOCK_SIZE),
 		start_offset - area_start);
-
 	//	PRIMAL_FLAG=false;
 	//}
 
@@ -1441,7 +1452,7 @@ loop:
 
 	log_write_mutex_exit();
 
-	if (flush_to_disk) {
+	if (flush_to_disk){ 
 		log_write_flush_to_disk_low();
 	}
 }
@@ -1482,6 +1493,7 @@ log_buffer_sync_in_background(
 	}
 
 	log_mutex_exit();
+	fprintf(stderr,"[JONGQ] log_buffer_sycn_in_background() call log_write_up_to!\n");
 	log_write_up_to(lsn, flush);
 }
 
@@ -1506,6 +1518,7 @@ log_flush_margin(void)
 
 	log_mutex_exit();
 	if (lsn) {
+		fprintf(stderr,"[JONGQ] log_flush_margin() call log_write_up_to!\n");
 		log_write_up_to(lsn, false);
 	}
 }
@@ -1877,8 +1890,12 @@ log_checkpoint(
 	}
 
 	log_mutex_exit();
+	
+	fprintf(stderr,"[JONGQ] log_checkpoint call log_write_up_to\n");
+	if(SHUTDOWN_FLAG == true){
+		fprintf(stderr,"[JONGQ] PRIMAL_FLAG is TRUE when calling log_checkpoint\n");
+	}
 
-	//fprintf(stderr,"[JONGQ] log_checkpoint call log_write_up_to\n");
 	log_write_up_to(flush_lsn, true);
 
 	DBUG_EXECUTE_IF(

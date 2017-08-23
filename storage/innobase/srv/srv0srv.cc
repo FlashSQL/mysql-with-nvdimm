@@ -2152,15 +2152,21 @@ srv_master_do_active_tasks(void)
 	}
 
 	/* Make a new checkpoint */
+
 	if (cur_time % SRV_MASTER_CHECKPOINT_INTERVAL == 0) {
 		srv_main_thread_op_info = "making checkpoint";
 		
-		//fprintf(stderr,"[JONGQ] srv_master_active call log_checkpoint!\n");
-
+		fprintf(stderr,"[JONGQ] srv_master_active call log_checkpoint!\n");
+		// JONGQ ADDED
+		extern bool PRIMAL_FLAG;
+		PRIMAL_FLAG=true;
 		log_checkpoint(TRUE, FALSE);
+		PRIMAL_FLAG=false;
+		
 		MONITOR_INC_TIME_IN_MICRO_SECS(
 			MONITOR_SRV_CHECKPOINT_MICROSECOND, counter_time);
 	}
+
 }
 
 /*********************************************************************//**
@@ -2299,11 +2305,12 @@ func_exit:
 	/* Make a new checkpoint about once in 10 seconds */
 	srv_main_thread_op_info = "making checkpoint";
 	
-	//fprintf(stderr,"[JONGQ] srv_master_shutdown call log_checkpoint!\n");
-	extern bool PRIMAL_FLAG;
-	PRIMAL_FLAG=true;
+	fprintf(stderr,"[JONGQ] srv_master_shutdown call log_checkpoint!\n");
+	//extern bool PRIMAL_FLAG;
+	//PRIMAL_FLAG=true;	
+	extern bool SHUTDOWN_FLAG;
+	SHUTDOWN_FLAG = true;
 	log_checkpoint(TRUE, FALSE);
-	PRIMAL_FLAG=false;
 
 	/* Print progress message every 60 seconds during shutdown */
 	if (srv_shutdown_state > 0 && srv_print_verbose_log) {
